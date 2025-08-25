@@ -18,12 +18,14 @@ def load_and_prepare_prices(data_folder="../data/raw_data", symbol_pattern="USDT
     pd.DataFrame
         DataFrame with datetime index and columns as asset symbols.
     """
-
+    # Find all parquet files in the data folder matching the symbol pattern
     files = glob(path.join(data_folder, f"*{symbol_pattern}*.parquet"))
 
+    # If no files are found, raise an error to alert the user
     if not files:
         raise FileNotFoundError(f"No parquet files found for pattern: {symbol_pattern}")
 
+    # Read and merge all files into a single DataFrame
     merged_df = pd.concat(
         [
             pd.read_parquet(file)[['close_time', 'close']]
@@ -39,32 +41,49 @@ def load_and_prepare_prices(data_folder="../data/raw_data", symbol_pattern="USDT
 
     return merged_df
 
-def group_prices_by_month(df: pd.DataFrame) -> dict:
+def compute_daily_returns(prices: pd.DataFrame) -> pd.DataFrame:
     """
-    Groups daily price data into monthly periods, keeping only coins that have data in each month.
+    Computes daily log returns for all assets.
 
     Parameters
     ----------
-    df : pd.DataFrame
-        Daily prices with datetime index and coin symbols as columns.
+    prices : pd.DataFrame
+        DataFrame with daily prices, datetime index, and asset symbols as columns.
 
     Returns
     -------
-    dict
-        Dictionary with period keys (YYYY-MM) and monthly DataFrames as values.
+    pd.DataFrame
+        DataFrame with daily log returns.
     """
-    df = df.copy()
-    if not pd.api.types.is_datetime64_any_dtype(df.index):
-        df.index = pd.to_datetime(df.index)
+    returns = prices.pct_change(fill_method=None).dropna(how='all')
+    return returns
 
-    # Add month period
-    df['month'] = df.index.to_period('M')
+def group_returns_by_month(returns: pd.DataFrame):
+    """
+    Groups a daily returns DataFrame by month, keeping only coins
+    with complete data for the month (no NaNs).
 
-    # Group by month and drop coins that are not available in that month
+    Parameters
+    ----------
+    returns : pd.DataFrame
+        Daily returns, datetime index, coins as columns
+
+    Returns
+    -------
+    monthly_groups : dict
+        Keys = month as string ('YYYY-MM'), values = DataFrame with only complete coins
+    """
+    # Create month column
+    returns = returns.copy()
+    returns['month'] = returns.index.to_period('M')
+
+    # Dictionary to hold monthly groups
     monthly_groups = {}
-    for month, group in df.groupby('month'):
-        group = group.drop(columns='month')          # remove the 'month' helper column
-        group = group.dropna(axis=1, how='all')      # drop coins not available in this month
+
+    for month, group in returns.groupby('month'):
+        # Drop the 'month' column and any coin with NaN in this month
+        group = group.drop(columns='month').dropna(axis=1, how='any')
+        # Save to dictionary
         monthly_groups[str(month)] = group
 
     return monthly_groups
