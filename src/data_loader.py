@@ -1,6 +1,6 @@
 import pandas as pd
 from glob import glob
-from os import path
+from os import path, makedirs
 
 def load_and_prepare_prices(data_folder="../data/raw_data", symbol_pattern="USDT"):
     """
@@ -93,9 +93,9 @@ def save_monthly_returns(monthly_returns: dict, out_folder="../data/processed"):
     Saves monthly return DataFrames into the processed folder, 
     one file per month (Parquet).
     """
-    import os
-    os.makedirs(out_folder, exist_ok=True)
+
+    makedirs(out_folder, exist_ok=True)
 
     for month, df in monthly_returns.items():
-        file_path = os.path.join(out_folder, f"monthly_returns_{month}.parquet")
+        file_path = path.join(out_folder, f"monthly_returns_{month}.parquet")
         df.to_parquet(file_path)
