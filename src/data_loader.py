@@ -87,3 +87,15 @@ def group_returns_by_month(returns: pd.DataFrame):
         monthly_groups[str(month)] = group
 
     return monthly_groups
+
+def save_monthly_returns(monthly_returns: dict, out_folder="../data/processed"):
+    """
+    Saves monthly return DataFrames into the processed folder, 
+    one file per month (Parquet).
+    """
+    import os
+    os.makedirs(out_folder, exist_ok=True)
+
+    for month, df in monthly_returns.items():
+        file_path = os.path.join(out_folder, f"monthly_returns_{month}.parquet")
+        df.to_parquet(file_path)
