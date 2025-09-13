@@ -18,14 +18,12 @@ def load_and_prepare_prices(data_folder="../data/raw_data", symbol_pattern="USDT
     pd.DataFrame
         DataFrame with datetime index and columns as asset symbols.
     """
-    # Find all parquet files in the data folder matching the symbol pattern
+
     files = glob(path.join(data_folder, f"*{symbol_pattern}*.parquet"))
 
-    # If no files are found, raise an error to alert the user
     if not files:
         raise FileNotFoundError(f"No parquet files found for pattern: {symbol_pattern}")
 
-    # Read and merge all files into a single DataFrame
     merged_df = pd.concat(
         [
             pd.read_parquet(file)[['close_time', 'close']]
@@ -55,6 +53,7 @@ def compute_daily_returns(prices: pd.DataFrame) -> pd.DataFrame:
     pd.DataFrame
         DataFrame with daily log returns.
     """
+
     returns = prices.pct_change(fill_method=None).dropna(how='all')
     return returns
 
@@ -73,17 +72,14 @@ def group_returns_by_month(returns: pd.DataFrame):
     monthly_groups : dict
         Keys = month as string ('YYYY-MM'), values = DataFrame with only complete coins
     """
-    # Create month column
+    
     returns = returns.copy()
     returns['month'] = returns.index.to_period('M')
 
-    # Dictionary to hold monthly groups
     monthly_groups = {}
 
     for month, group in returns.groupby('month'):
-        # Drop the 'month' column and any coin with NaN in this month
         group = group.drop(columns='month').dropna(axis=1, how='any')
-        # Save to dictionary
         monthly_groups[str(month)] = group
 
     return monthly_groups
@@ -99,3 +95,4 @@ def save_monthly_returns(monthly_returns: dict, out_folder="../data/processed"):
     for month, df in monthly_returns.items():
         file_path = path.join(out_folder, f"monthly_returns_{month}.parquet")
         df.to_parquet(file_path)
+

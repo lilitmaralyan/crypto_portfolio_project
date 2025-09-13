@@ -1,50 +1,61 @@
 import pandas as pd
+import numpy as np
 
-def compute_equal_weights(monthly_returns):
+def compute_equal_weights(monthly_returns: pd.DataFrame) -> pd.Series:
     """
-    Compute equal weights for each month.
-    
+    Computes equal weights for a given month.
+
     Parameters
     ----------
-    monthly_returns : dict
-        {month_string: DataFrame of daily returns for that month}
-        
-    Returns
-    -------
-    dict
-        {month_string: pd.Series of weights per coin}
-    """
-    weights = {}
-    for month, df in monthly_returns.items():
-        n_coins = df.shape[1]
-        weights[month] = pd.Series(1/n_coins, index=df.columns)
-    return weights
+    monthly_returns : pd.DataFrame
+        Daily returns for one month (coins as columns, dates as index)
 
-def compute_portfolio_returns(monthly_returns: dict, monthly_weights: dict) -> pd.Series:
-    """
-    Compute daily portfolio returns using monthly weights.
-    
-    Parameters
-    ----------
-    monthly_returns : dict
-        {month_string: DataFrame of daily returns for that month}
-    monthly_weights : dict
-        {month_string: Series of weights per coin}
-    
     Returns
     -------
     pd.Series
-        Daily portfolio returns indexed by date
+        Weights for each coin (sums to 1)
     """
-    portfolio_returns = []
+    n_assets = monthly_returns.shape[1]
+    weights = pd.Series(1/n_assets, index=monthly_returns.columns)
+    return weights
 
-    for month, returns_df in monthly_returns.items():
-        weights = monthly_weights[month]
-        # Multiply each column by its weight and sum across coins
-        daily_portfolio = returns_df.dot(weights)
-        portfolio_returns.append(daily_portfolio)
 
-    # Concatenate all months into one Series
-    portfolio_returns = pd.concat(portfolio_returns).sort_index()
+def compute_vol_scaled_weights(prev_month_returns: pd.DataFrame) -> pd.Series:
+    """
+    Computes volatility-scaled weights based on the PREVIOUS month's returns.
+
+    Parameters
+    ----------
+    prev_month_returns : pd.DataFrame
+        Daily returns for the previous month (coins as columns, dates as index)
+
+    Returns
+    -------
+    pd.Series
+        Volatility-scaled weights for each coin (sums to 1)
+    """
+    vol = prev_month_returns.std()
+    inv_vol = 1 / vol.replace(0, np.nan)  # avoid div by zero
+    weights = inv_vol / inv_vol.sum()
+    return weights
+
+def apply_weights(month_returns: pd.DataFrame, weights: pd.Series) -> pd.Series:
+    """
+    Applies weights to a month's daily returns to compute portfolio returns.
+
+    Parameters
+    ----------
+    month_returns : pd.DataFrame
+        Daily returns for one month (coins as columns)
+    weights : pd.Series
+        Portfolio weights (must align with month_returns columns)
+
+    Returns
+    -------
+    pd.Series
+        Daily portfolio returns for that month
+    """
+    # Align weights with available assets
+    weights = weights.reindex(month_returns.columns).fillna(0)
+    portfolio_returns = month_returns.dot(weights)
     return portfolio_returns
-
